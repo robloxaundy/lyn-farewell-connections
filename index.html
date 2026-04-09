@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+
+<!-- We whipped claude for this webpage, but the puzzle is all human and made with love <3 -->
+<!-- Don't spoil the answer >:( -->
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connections 6×6</title>
+  <meta name="description" content="A 6×6 twist on the classic word grouping puzzle. Find six groups of six!" />
+  <style>
+    @font-face {
+      font-family: 'Builder Sans';
+      src: url('BuilderSans-SemiBold-600.otf') format('opentype');
+      font-weight: 600;
+      font-style: normal;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --c1-bg: #F9DF6D; --c1-fg: #1a1a1a;
+      --c2-bg: #A0C35A; --c2-fg: #1a1a1a;
+      --c3-bg: #5EC3C8; --c3-fg: #1a1a1a;
+      --c4-bg: #4A90D9; --c4-fg: #fff;
+      --c5-bg: #9B59B6; --c5-fg: #fff;
+      --c6-bg: #C0392B; --c6-fg: #fff;
+      --tile-bg: #efefe6;
+      --tile-sel: #5a594e;
+      --border: #e0e0e0;
+      --text: #1a1a1a;
+    }
+
+    body {
+      font-family: 'Builder Sans', sans-serif;
+      background: #fff;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    header h1 {
+      font-size: clamp(1rem, 4vw, 1.45rem);
+      font-weight: bold;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .icon-btn {
+      position: absolute;
+      right: 14px;
+      background: none;
+      border: 1.5px solid var(--text);
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+      padding: 0;
+      font-family: inherit;
+    }
+
+    /* ── Game Container ── */
+    .game {
+      width: 100%;
+      max-width: 630px;
+      padding: 10px 14px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #444;
+      text-align: center;
+    }
+
+    /* ── Solved Rows ── */
+    #solved-area {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .solved-row {
+      border-radius: 8px;
+      padding: 13px 12px;
+      text-align: center;
+      animation: revealRow 0.45s ease forwards;
+      transform-origin: top;
+    }
+
+    @keyframes revealRow {
+      from { transform: scaleY(0); opacity: 0; }
+      to   { transform: scaleY(1); opacity: 1; }
+    }
+
+    .solved-row .row-name  { font-weight: bold; font-size: 0.9rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    .solved-row .row-words { font-size: 0.78rem; margin-top: 3px; opacity: 0.9; }
+
+    /* ── Grid ── */
+    #grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+    }
+
+    .tile {
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--tile-bg);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: clamp(0.46rem, 1.85vw, 0.78rem);
+      font-weight: bold;
+      font-family: inherit;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      padding: 4px 3px;
+      user-select: none;
+      line-height: 1.18;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      transition: background 0.12s, transform 0.12s;
+      border: none;
+      position: relative;
+    }
+
+    .tile:hover:not([data-group]) { background: #ddddd4; }
+    .tile[data-group]             { color: #fff; }
+    .tile[data-group]:hover       { filter: brightness(1.12); }
+    .tile[data-group="0"] { background: #4582c7; }
+    .tile[data-group="1"] { background: #a7c96b; }
+    .tile[data-group="2"] { background: #e44326; }
+    .tile[data-group="3"] { background: #e383c4; }
+    .tile[data-group="4"] { background: #f07a5e; }
+    .tile[data-group="5"] { background: #e8dcad; }
+
+    .tile-badge {
+      position: absolute;
+      top: 3px;
+      right: 4px;
+      font-size: 0.5rem;
+      line-height: 1;
+      font-weight: bold;
+      background: rgba(255,255,255,0.28);
+      border-radius: 3px;
+      padding: 1px 3px;
+      pointer-events: none;
+    }
+
+    /* ── Animations ── */
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      15%,55%,85% { transform: translateX(-7px); }
+      35%,70%   { transform: translateX(7px); }
+    }
+
+    @keyframes bounce {
+      0%   { transform: translateY(0); }
+      25%  { transform: translateY(-14px); }
+      55%  { transform: translateY(-7px); }
+      75%  { transform: translateY(-11px); }
+      100% { transform: translateY(0); }
+    }
+
+    .tile.shake  { animation: shake  0.55s ease; }
+    .tile.bounce { animation: bounce 0.65s ease; }
+
+    /* ── Message ── */
+    #message {
+      min-height: 1.6rem;
+      text-align: center;
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+
+    #message.one-away { color: #555; font-style: italic; }
+
+    /* ── Mistakes ── */
+    .mistakes-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.875rem;
+    }
+
+    .dots { display: flex; gap: 6px; }
+
+    .dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--tile-sel);
+      transition: background 0.3s;
+    }
+
+    .dot.used { background: #ccc; }
+
+    /* ── Selection Tray ── */
+    .sel-tray {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-height: 24px;
+    }
+
+    .sel-tray-group { display: flex; gap: 4px; }
+
+    .sel-slot {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+    }
+
+    .sel-slot.gap {
+      border: 2px dashed #bbb;
+      background: transparent;
+    }
+
+    .sel-tray-sep { font-size: 0.75rem; color: #bbb; }
+
+    /* ── Controls ── */
+    .controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+    .btn {
+      padding: 10px 22px;
+      border-radius: 24px;
+      font-size: 0.875rem;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: background 0.14s, color 0.14s, opacity 0.14s;
+    }
+
+    .btn-outline {
+      border: 1.5px solid var(--text);
+      background: #fff;
+      color: var(--text);
+    }
+
+    .btn-outline:hover:not(:disabled) { background: #f0f0ea; }
+
+    .btn-primary {
+      border: none;
+      background: var(--text);
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) { background: #383838; }
+    .btn:disabled { opacity: 0.38; cursor: not-allowed; }
+
+    /* ── Modals ── */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.42);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 14px;
+      padding: 28px 22px 22px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.22);
+    }
+
+    .modal h2 { font-size: 1.55rem; margin-bottom: 10px; }
+    .modal-sub { font-size: 0.88rem; color: #555; margin-bottom: 14px; }
+
+    .emoji-result {
+      font-size: 1.1rem;
+      line-height: 1.8;
+      letter-spacing: 0.04em;
+      margin: 12px 0;
+    }
+
+    .modal-actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+    .modal-actions .btn { flex: 1; min-width: 130px; }
+
+    /* Help modal */
+    .help-modal .modal-sub { font-size: 0.86rem; line-height: 1.5; color: #333; margin-bottom: 0; text-align: left; }
+
+    .help-note { font-size: 0.82rem; color: #555; line-height: 1.5; text-align: left; }
+
+    @media (max-width: 380px) {
+      .tile { font-size: clamp(0.42rem, 4.5vw, 0.7rem); }
+      header h1 { font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1 id="page-title"></h1>
+  <button class="icon-btn" id="help-btn"></button>
+</header>
+
+<div class="game">
+  <p class="subtitle" id="subtitle"></p>
+
+  <div id="solved-area"></div>
+
+  <div id="grid" role="grid" aria-label="Word grid"></div>
+
+  <div id="sel-tray" class="sel-tray"></div>
+
+  <div id="message" aria-live="polite"></div>
+
+  <div class="mistakes-row">
+    <span id="mistakes-label"></span>
+    <div id="dots" class="dots"></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-outline" id="shuffle-btn"></button>
+    <button class="btn btn-outline" id="deselect-btn" disabled></button>
+    <button class="btn btn-primary"  id="submit-btn"  disabled></button>
+  </div>
+</div>
+
+<!-- End-game modal -->
+<div class="overlay" id="end-overlay" role="dialog" aria-modal="true" aria-labelledby="end-title">
+  <div class="modal">
+    <h2 id="end-title"></h2>
+    <p class="modal-sub" id="end-sub"></p>
+    <div class="emoji-result" id="end-emoji"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="share-btn"></button>
+      <button class="btn btn-primary"  id="next-btn"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Help modal -->
+<div class="overlay" id="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-heading">
+  <div class="modal help-modal">
+    <h2 id="help-heading"></h2>
+    <p class="modal-sub" id="help-body"></p>
+    <p class="help-note" id="help-note"></p>
+    <div class="modal-actions" style="margin-top:18px">
+      <button class="btn btn-primary" id="help-close"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ═══════════════════════════════════════════
+   UI STRINGS
+═══════════════════════════════════════════ */
+
+const UI = {
+  // Page chrome
+  pageTitle:        'Lyns Fairwell 6×6',
+  subtitle:         'Find six groups of six!',
+  helpBtn:          '?',
+  helpBtnAria:      'How to play',
+  mistakesLabel:    'Mistakes remaining:',
+
+  // Buttons
+  btnShuffle:       'Shuffle',
+  btnDeselectAll:   'Deselect All',
+  btnDeselectCount: n => `Deselect All (${n})`,
+  btnSubmit:        'Submit',
+  btnShare:         'Share',
+  btnCopied:        'Copied!',
+  btnPlayAgain:     'Play Again',
+
+  // Help modal
+  helpTitle:        'How To Play',
+  helpBody:         'Find six groups of six words that share something in common. Also you know how to play why are you looking at this?',
+  helpBodySub:      'Select any multiple of 6 words and tap <strong>Submit</strong> \u2014 you can turn in one group or several at once.',
+  helpNote:         'You have <strong>4 mistakes</strong> before the puzzle ends.',
+  btnHelpClose:     'Got it',
+
+  // In-game messages
+  msgDuplicate:     'Already tried that combination!',
+  msgMultiGroup:    n => `${n} groups at once!`,
+  msgOneAway:       'One away!',
+  msgNotQuite:      'Not quite!',
+  msgLastChance:    'Not quite! Last chance\u2026',
+
+  // End modal
+  endWonTitle:      "You've solved our fiendish puzzle!",
+  endLostTitle:     "Oh no, you failed! too bad you can't just refresh the web page...",
+  endWonSub:        n => `Solved with ${n} mistake${n !== 1 ? 's' : ''}!`,
+  endLostSub:       '',
+  endEmptyFallback: '\u2013',
+
+  // Share
+  shareHeader:      'Connections 6\xd76',
+  selTrayDivider:   '|',
+};
+
+/* ═══════════════════════════════════════════
+   THEME DATA
+═══════════════════════════════════════════ */
+const GROUP_COLORS = ['#4582c7','#a7c96b','#e44326','#e383c4','f07a5e','#e8dcad'];
+
+const LEVELS = [
+  { bg: '#ffd340', fg: '#1a1a1a', label: 'Straightforward', emoji: '🟨' },
+  { bg: '#57b069', fg: '#ffffff', label: 'Easy',            emoji: '🟩' },
+  { bg: '#3c53ce', fg: '#ffffff', label: 'Medium',          emoji: '🟦' },
+  { bg: '#e383c4', fg: '#ffffff', label: 'Hard',            emoji: '🟪' },
+  { bg: '#be173b', fg: '#ffffff', label: 'Tricky',          emoji: '🟥' },
+  { bg: '#f8812f', fg: '#ffffff', label: 'Fiendish',        emoji: '🟧' },
+];
+
+/* ═══════════════════════════════════════════
+   PUZZLES  (6 categories × 6 words each)
+═══════════════════════════════════════════ */
+
+const PUZZLE = {
+  categories: [
+    { name: 'N/A 1', lv: 1, words: ['TEMP01','TEMP02','TEMP03','TEMP04','TEMP05','TEMP06'] },
+    { name: 'N/A 2', lv: 2, words: ['TEMP07','TEMP08','TEMP09','TEMP10','TEMP11','TEMP12'] },
+    { name: 'N/A 3', lv: 3, words: ['TEMP13','TEMP14','TEMP15','TEMP16','TEMP17','TEMP18'] },
+    { name: 'N/A 4', lv: 4, words: ['TEMP19','TEMP20','TEMP21','TEMP22','TEMP23','TEMP24'] },
+    { name: 'N/A 5', lv: 5, words: ['TEMP25','TEMP26','TEMP27','TEMP28','TEMP29','TEMP30'] },
+    { name: 'N/A 6', lv: 6, words: ['TEMP31','TEMP32','TEMP33','TEMP34','TEMP35','TEMP36'] },
+  ],
+};
+
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+
+const MAX_ERR = 4;
+
+let G = {
+  puzzle:   null,
+  tiles:    [],      // { word, lv, solved }
+  selected: [],      // word strings
+  solved:   [],      // category objects
+  errors:   0,
+  history:  [],      // { words[], levels[], correct }
+  over:     false,
+};
+
+/* ═══════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════ */
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+let msgTimer;
+function setMsg(text, cls = '') {
+  const el = document.getElementById('message');
+  el.textContent = text;
+  el.className = cls ? `one-away` : '';
+  clearTimeout(msgTimer);
+  if (text) msgTimer = setTimeout(() => setMsg(''), 2600);
+}
+
+function tileEl(w) {
+  return document.querySelector(`.tile[data-word="${CSS.escape(w)}"]`);
+}
+
+function animateTiles(words, cls, ms) {
+  return new Promise(resolve => {
+    words.forEach(w => { const el = tileEl(w); if (el) el.classList.add(cls); });
+    setTimeout(() => {
+      words.forEach(w => { const el = tileEl(w); if (el) el.classList.remove(cls); });
+      resolve();
+    }, ms);
+  });
+}
+
+/* ═══════════════════════════════════════════
+   LOAD PUZZLE
+═══════════════════════════════════════════ */
+
+function loadPuzzle() {
+  G.tiles    = shuffle(PUZZLE.categories.flatMap(c => c.words.map(w => ({ word: w, lv: c.lv, solved: false }))));
+  G.selected = [];
+  G.solved   = [];
+  G.errors   = 0;
+  G.history  = [];
+  G.over     = false;
+  render();
+  setMsg('');
+}
+
+/* ═══════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════ */
+
+function render() {
+  renderSolved();
+  renderGrid();
+  renderSelTray();
+  renderDots();
+  updateButtons();
+}
+
+function renderSolved() {
+  const cont = document.getElementById('solved-area');
+  cont.innerHTML = '';
+  G.solved.forEach(cat => {
+    const c   = LEVELS[cat.lv - 1];
+    const row = document.createElement('div');
+    row.className = 'solved-row';
+    row.style.cssText = `background:${c.bg};color:${c.fg}`;
+    row.innerHTML =
+      `<div class="row-name">${cat.name}</div>` +
+      `<div class="row-words">${cat.words.join(', ')}</div>`;
+    cont.appendChild(row);
+  });
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  G.tiles.filter(t => !t.solved).forEach(tile => {
+    const btn      = document.createElement('button');
+    const selIdx   = G.selected.indexOf(tile.word);
+    const isSelected = selIdx !== -1;
+    const groupIdx = isSelected ? Math.floor(selIdx / 6) : -1;
+    btn.className  = 'tile';
+    btn.dataset.word = tile.word;
+    if (isSelected) btn.dataset.group = groupIdx;
+    btn.setAttribute('role', 'gridcell');
+    btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    btn.addEventListener('click', () => toggleTile(tile.word));
+    btn.appendChild(document.createTextNode(tile.word));
+    if (isSelected) {
+      const badge = document.createElement('span');
+      badge.className = 'tile-badge';
+      badge.textContent = groupIdx + 1;
+      btn.appendChild(badge);
+    }
+    grid.appendChild(btn);
+  });
+}
+
+function renderDots() {
+  const cont = document.getElementById('dots');
+  cont.innerHTML = '';
+  for (let i = 0; i < MAX_ERR; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i < G.errors ? ' used' : '');
+    cont.appendChild(d);
+  }
+}
+
+function renderSelTray() {
+  const tray = document.getElementById('sel-tray');
+  tray.innerHTML = '';
+  if (G.selected.length === 0) return;
+  for (let i = 0; i < G.selected.length; i += 6) {
+    if (i > 0) {
+      const sep = document.createElement('span');
+      sep.className = 'sel-tray-sep';
+      sep.textContent = UI.selTrayDivider;
+      tray.appendChild(sep);
+    }
+    const grp = document.createElement('div');
+    grp.className = 'sel-tray-group';
+    for (let j = i; j < Math.min(i + 6, G.selected.length); j++) {
+      const slot = document.createElement('div');
+      if (G.selected[j] !== null) {
+        slot.className = 'sel-slot';
+        slot.style.background = GROUP_COLORS[Math.floor(j / 6)];
+      } else {
+        slot.className = 'sel-slot gap';
+      }
+      grp.appendChild(slot);
+    }
+    tray.appendChild(grp);
+  }
+}
+
+function updateButtons() {
+  const n      = G.selected.length;
+  const filled = G.selected.filter(w => w !== null).length;
+  const hasGap = G.selected.includes(null);
+  document.getElementById('submit-btn').disabled   = n === 0 || hasGap || n % 6 !== 0 || G.over;
+  document.getElementById('deselect-btn').disabled = filled === 0 || G.over;
+  document.getElementById('deselect-btn').textContent = filled > 0 ? UI.btnDeselectCount(filled) : UI.btnDeselectAll;
+}
+
+/* ═══════════════════════════════════════════
+   INTERACTIONS
+═══════════════════════════════════════════ */
+
+function collapseEmptyGroups() {
+  // Remove any boundary-aligned group of 6 that is entirely null
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i + 6 <= G.selected.length; i += 6) {
+      if (G.selected.slice(i, i + 6).every(s => s === null)) {
+        G.selected.splice(i, 6);
+        changed = true;
+        break;
+      }
+    }
+  }
+}
+
+function toggleTile(word) {
+  if (G.over) return;
+  const tile = G.tiles.find(t => t.word === word);
+  if (!tile || tile.solved) return;
+
+  const idx = G.selected.indexOf(word);
+  if (idx !== -1) {
+    // Leave a null gap — don't shift other tiles
+    G.selected[idx] = null;
+    // If the whole group this slot belongs to is now empty, collapse it out
+    collapseEmptyGroups();
+    // Trim trailing nulls
+    while (G.selected.length > 0 && G.selected[G.selected.length - 1] === null) {
+      G.selected.pop();
+    }
+  } else {
+    // Fill the first gap, otherwise append
+    const gap = G.selected.indexOf(null);
+    if (gap !== -1) {
+      G.selected[gap] = word;
+    } else {
+      G.selected.push(word);
+    }
+  }
+
+  renderGrid();
+  renderSelTray();
+  updateButtons();
+}
+
+function doShuffle() {
+  const unsolved = G.tiles.filter(t => !t.solved);
+  shuffle(unsolved);
+  G.tiles = [...G.tiles.filter(t => t.solved), ...unsolved];
+  renderGrid();
+}
+
+function doDeselect() {
+  G.selected = [];
+  renderGrid();
+  renderSelTray();
+  updateButtons();
+}
+
+async function doSubmit() {
+  const n = G.selected.length;
+  if (n === 0 || G.selected.includes(null) || n % 6 !== 0 || G.over) return;
+  const words  = [...G.selected];
+  const levels = words.map(w => G.tiles.find(t => t.word === w).lv);
+
+  // Already guessed this exact set?
+  if (G.history.some(h => h.words.length === words.length && words.every(w => h.words.includes(w)))) {
+    setMsg(UI.msgDuplicate);
+    return;
+  }
+
+  // Validate each group of 6 in selection order independently
+  const groups = [];
+  for (let i = 0; i < words.length; i += 6) groups.push(words.slice(i, i + 6));
+  const matchingCats = [];
+  for (const group of groups) {
+    const gSet = new Set(group);
+    const cat = PUZZLE.categories.find(c => {
+      if (G.solved.find(s => s.name === c.name)) return false;
+      if (matchingCats.includes(c)) return false;
+      return c.words.every(w => gSet.has(w));
+    });
+    if (cat) matchingCats.push(cat);
+  }
+  const isCorrect = matchingCats.length === groups.length;
+
+  G.history.push({ words, levels, correct: isCorrect });
+
+  if (isCorrect) {
+    // ── Correct ──
+    await Promise.all(words.map((w, i) =>
+      new Promise(res => setTimeout(() => {
+        const el = tileEl(w);
+        if (el) { el.classList.add('bounce'); setTimeout(() => { el.classList.remove('bounce'); res(); }, 700); }
+        else res();
+      }, i * 90))
+    ));
+    matchingCats.forEach(cat => {
+      G.solved.push(cat);
+      cat.words.forEach(w => { G.tiles.find(t => t.word === w).solved = true; });
+    });
+    G.selected = [];
+    render();
+    setMsg(matchingCats.length > 1 ? UI.msgMultiGroup(matchingCats.length) : '');
+    if (G.solved.length === PUZZLE.categories.length) {
+      setTimeout(() => openEndModal(true), 350);
+    }
+  } else {
+    // ── Wrong ──
+    const oneAway = checkOneAway(words);
+    G.errors++;
+    await animateTiles(words, 'shake', 600);
+    renderGrid();
+    renderSelTray();
+    renderDots();
+    updateButtons();
+    if (oneAway) {
+      setMsg(UI.msgOneAway, 'one-away');
+    } else {
+      setMsg(G.errors >= MAX_ERR - 1 ? UI.msgLastChance : UI.msgNotQuite);
+    }
+    if (G.errors >= MAX_ERR) {
+      G.over = true;
+      updateButtons();
+      setTimeout(() => openEndModal(false), 600);
+    }
+  }
+}
+
+function checkOneAway(words) {
+  // Check each ordered group of 6 individually
+  for (let i = 0; i < words.length; i += 6) {
+    const gSet = new Set(words.slice(i, i + 6));
+    const oneAway = PUZZLE.categories.some(c => {
+      if (G.solved.find(s => s.name === c.name)) return false;
+      return c.words.filter(w => gSet.has(w)).length === 5;
+    });
+    if (oneAway) return true;
+  }
+  return false;
+}
+
+/* ═══════════════════════════════════════════
+   END MODAL
+═══════════════════════════════════════════ */
+
+function openEndModal(won) {
+  G.over = true;
+  updateButtons();
+  document.getElementById('end-title').textContent = won ? UI.endWonTitle : UI.endLostTitle;
+  document.getElementById('end-sub').textContent   = won ? UI.endWonSub(G.errors) : UI.endLostSub;
+
+  const lines = G.history.map(h =>
+    h.levels.map(lv => LEVELS[lv - 1]?.emoji || '⬜').join('')
+  );
+  document.getElementById('end-emoji').textContent = lines.join('\n') || UI.endEmptyFallback;
+  document.getElementById('end-overlay').classList.add('open');
+}
+
+function shareResults() {
+  const lines = G.history.map(h =>
+    h.levels.map(lv => LEVELS[lv - 1]?.emoji || '⬜').join('')
+  );
+  const text = [UI.shareHeader, ...lines, '', window.location.href].join('\n');
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('share-btn');
+      btn.textContent = UI.btnCopied;
+      setTimeout(() => (btn.textContent = UI.btnShare), 2000);
+    }).catch(() => alert(text));
+  } else {
+    alert(text);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════ */
+
+(function boot() {
+  // Inject static UI strings
+  document.title                                       = UI.pageTitle;
+  document.getElementById('page-title').textContent    = UI.pageTitle;
+  document.getElementById('subtitle').textContent      = UI.subtitle;
+  document.getElementById('mistakes-label').textContent = UI.mistakesLabel;
+  document.getElementById('shuffle-btn').textContent   = UI.btnShuffle;
+  document.getElementById('deselect-btn').textContent  = UI.btnDeselectAll;
+  document.getElementById('submit-btn').textContent    = UI.btnSubmit;
+  document.getElementById('share-btn').textContent     = UI.btnShare;
+  document.getElementById('next-btn').textContent      = UI.btnPlayAgain;
+  document.getElementById('help-heading').textContent  = UI.helpTitle;
+  document.getElementById('help-close').textContent    = UI.btnHelpClose;
+  document.getElementById('help-note').innerHTML       = UI.helpNote;
+  document.getElementById('help-body').innerHTML =
+    `${UI.helpBody}<br><br>${UI.helpBodySub}`;
+  const helpBtn = document.getElementById('help-btn');
+  helpBtn.textContent = UI.helpBtn;
+  helpBtn.title       = UI.helpBtnAria;
+  helpBtn.setAttribute('aria-label', UI.helpBtnAria);
+
+  // Buttons
+  document.getElementById('shuffle-btn') .addEventListener('click', doShuffle);
+  document.getElementById('deselect-btn').addEventListener('click', doDeselect);
+  document.getElementById('submit-btn')  .addEventListener('click', doSubmit);
+  document.getElementById('share-btn')   .addEventListener('click', shareResults);
+  document.getElementById('help-btn')    .addEventListener('click', () => document.getElementById('help-overlay').classList.add('open'));
+  document.getElementById('help-close')  .addEventListener('click', () => document.getElementById('help-overlay').classList.remove('open'));
+  document.getElementById('next-btn').addEventListener('click', () => {
+    document.getElementById('end-overlay').classList.remove('open');
+    loadPuzzle();
+  });
+
+  // Close overlays on backdrop click
+  ['end-overlay', 'help-overlay'].forEach(id => {
+    document.getElementById(id).addEventListener('click', e => {
+      if (e.target.id === id) document.getElementById(id).classList.remove('open');
+    });
+  });
+
+  // Keyboard: Escape closes modals
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      ['end-overlay','help-overlay'].forEach(id =>
+        document.getElementById(id).classList.remove('open')
+      );
+    }
+  });
+
+  loadPuzzle();
+}());
+</script>
+</body>
+</html>
